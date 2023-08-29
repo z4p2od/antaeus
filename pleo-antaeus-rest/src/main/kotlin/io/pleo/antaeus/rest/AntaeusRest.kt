@@ -5,19 +5,24 @@
 package io.pleo.antaeus.rest
 
 import io.javalin.Javalin
+import io.javalin.apibuilder.ApiBuilder
 import io.javalin.apibuilder.ApiBuilder.get
 import io.javalin.apibuilder.ApiBuilder.path
+import io.javalin.apibuilder.ApiBuilder.post
 import io.pleo.antaeus.core.exceptions.EntityNotFoundException
+import io.pleo.antaeus.core.services.BillingService
 import io.pleo.antaeus.core.services.CustomerService
 import io.pleo.antaeus.core.services.InvoiceService
 import mu.KotlinLogging
+import org.eclipse.jetty.http.HttpStatus
 
 private val logger = KotlinLogging.logger {}
 private val thisFile: () -> Unit = {}
 
 class AntaeusRest(
     private val invoiceService: InvoiceService,
-    private val customerService: CustomerService
+    private val customerService: CustomerService,
+    private val billingService: BillingService
 ) : Runnable {
 
     override fun run() {
@@ -65,6 +70,14 @@ class AntaeusRest(
                             // URL: /rest/v1/invoices/pending
                             get {
                                 it.json(invoiceService.fetchPending())
+                            }
+                        }
+
+                        path("pay") {
+                            // URL: /rest/v1/invoices/pay
+                            post {
+                                billingService.billInvoices()
+                                it.status(HttpStatus.NO_CONTENT_204)
                             }
                         }
 

@@ -34,7 +34,7 @@ internal fun setupInitialData(dal: AntaeusDal) {
 internal fun getPaymentProvider(): PaymentProvider {
     return object : PaymentProvider {
         override fun charge(invoice: Invoice): Boolean {
-                return Random.nextBoolean()
+               return Random.nextBoolean()
         }
     }
 }
