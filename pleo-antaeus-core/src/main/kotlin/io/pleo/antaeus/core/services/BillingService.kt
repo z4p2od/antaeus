@@ -24,8 +24,8 @@ class BillingService(
             }
             if (isInvoicePaid) {
                 invoiceService.updateStatus(invoice.id, InvoiceStatus.PAID)
-                // }
+                 }
             }
         }
     }
-}
+

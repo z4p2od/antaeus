@@ -1,0 +1,30 @@
+version: '3'
+services:
+  anteaus:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "7000:7000"
+    networks:
+      - my_network
+    volumes:
+      - pleo-antaeus-build-cache:/root/.gradle
+
+  cron-job:
+    build:
+      context: .
+      dockerfile: Dockerfile-cron
+    networks:
+      - my_network
+    depends_on:
+      - anteaus
+    volumes:
+      - ./cronjob:/etc/cron.d/hello-cron
+
+networks:
+  my_network:
+    driver: bridge
+
+volumes:
+  pleo-antaeus-build-cache:
