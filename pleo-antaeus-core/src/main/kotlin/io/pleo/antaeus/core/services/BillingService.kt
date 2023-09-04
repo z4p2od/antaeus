@@ -12,7 +12,7 @@ class BillingService(
     private val invoiceService: InvoiceService
 ) {
     fun billInvoices() {
-        val pendingInvoices = invoiceService.fetchPending()
+        val pendingInvoices = invoiceService.fetchByStatus(InvoiceStatus.PENDING)
         logger.info { "start processing ${pendingInvoices.size} invoices" }
 
         pendingInvoices.forEach { invoice ->

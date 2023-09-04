@@ -13,6 +13,7 @@ import io.pleo.antaeus.core.exceptions.EntityNotFoundException
 import io.pleo.antaeus.core.services.BillingService
 import io.pleo.antaeus.core.services.CustomerService
 import io.pleo.antaeus.core.services.InvoiceService
+import io.pleo.antaeus.models.InvoiceStatus
 import mu.KotlinLogging
 import org.eclipse.jetty.http.HttpStatus
 
@@ -69,11 +70,11 @@ class AntaeusRest(
                         path("pending") {
                             // URL: /rest/v1/invoices/pending
                             get {
-                                it.json(invoiceService.fetchPending())
+                                it.json(invoiceService.fetchByStatus(InvoiceStatus.PENDING))
                             }
                         }
 
-                        path("pay") {
+                        path("pay") { // TODO: change "pay" with something more descriptive & maybe move path
                             // URL: /rest/v1/invoices/pay
                             post {
                                 billingService.billInvoices()
