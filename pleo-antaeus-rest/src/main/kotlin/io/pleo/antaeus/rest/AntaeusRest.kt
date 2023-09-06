@@ -16,6 +16,8 @@ import io.pleo.antaeus.core.services.InvoiceService
 import io.pleo.antaeus.models.InvoiceStatus
 import mu.KotlinLogging
 import org.eclipse.jetty.http.HttpStatus
+import kotlinx.coroutines.*
+
 
 private val logger = KotlinLogging.logger {}
 private val thisFile: () -> Unit = {}
@@ -77,7 +79,9 @@ class AntaeusRest(
                         path("pay") { // TODO: change "pay" with something more descriptive & maybe move path
                             // URL: /rest/v1/invoices/pay
                             post {
-                                billingService.billInvoices()
+                                GlobalScope.launch { //TODO: figure out if that's the best way to do it or go with routeCoroutineScope
+                                    billingService.billInvoices()
+                                }
                                 it.status(HttpStatus.NO_CONTENT_204)
                             }
                         }
