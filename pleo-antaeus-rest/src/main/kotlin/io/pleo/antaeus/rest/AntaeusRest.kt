@@ -80,7 +80,7 @@ class AntaeusRest(
                             // URL: /rest/v1/invoices/pay
                             post {
                                 GlobalScope.launch { //TODO: figure out if that's the best way to do it or go with routeCoroutineScope
-                                    billingService.billInvoices()
+                                    billingService.billInvoices(InvoiceStatus.PENDING )
                                 }
                                 it.status(HttpStatus.NO_CONTENT_204)
                             }
