@@ -2,8 +2,10 @@ package io.pleo.antaeus.core.services
 import io.pleo.antaeus.core.exceptions.CurrencyMismatchException
 import io.pleo.antaeus.core.exceptions.CustomerNotFoundException
 import io.pleo.antaeus.core.exceptions.NetworkException
+import io.pleo.antaeus.core.external.EmailService
 import kotlinx.coroutines.*
 import io.pleo.antaeus.core.external.PaymentProvider
+import io.pleo.antaeus.core.external.SlackIntegration
 import io.pleo.antaeus.models.Invoice
 import io.pleo.antaeus.models.InvoiceStatus
 import java.lang.Exception
@@ -15,6 +17,8 @@ private val logger = KotlinLogging.logger {}
 class BillingService(
     private val paymentProvider: PaymentProvider,
     private val invoiceService: InvoiceService,
+    private val emailService: EmailService,
+    private val slackIntegration: SlackIntegration,
     private val config: BillingConfig
 ) {
     suspend fun autobill() {
@@ -63,6 +67,7 @@ class BillingService(
 
         // Update the statuses of the fetched invoices to PERMANENT_FAIL
         for (invoice in invoicesToMarkAsPermaFailed) {
+            slackIntegration.sendMarkedPermanentFailMessage(invoice)
             invoiceService.updateStatus(invoice.id, InvoiceStatus.PERMANENT_FAIL)
         }
     }
@@ -104,28 +109,25 @@ class BillingService(
     }
 
     private fun handleCustomerInsufficientBalance(invoice: Invoice){
-        logger.info { "Not enough balance to charge Invoice ID: ${invoice.id}  of Customer ID: ${invoice.customerId }"}
         invoiceService.updateStatus(invoice.id, InvoiceStatus.FAILED_INSUFFICIENT_BALANCE)
-        //TODO: inform customer that payment failed due to low balance
+        emailService.sendPaymentFailureEmail(invoice)
     }
 
     private fun handleCustomerNotFoundException(invoice: Invoice){
-        logger.info { "Customer ID: ${invoice.customerId } not found for Invoice ID: ${invoice.id} "}
         invoiceService.updateStatus(invoice.id, InvoiceStatus.FAILED_INVALID_CUSTOMER)
-        //TODO: inform support to handle it
+        slackIntegration.sendChargingFailureMessage(invoice, "Customer not Found")
 
     }
 
     private fun handleCurrencyMismatchException(invoice: Invoice){
-        logger.info {"Currency mismatch for Invoice Id: ${invoice.id}" } //:todo maybe infer currency
         invoiceService.updateStatus(invoice.id, InvoiceStatus.FAILED_INVALID_CURRENCY)
-        //TODO: inform support to handle it
+        slackIntegration.sendChargingFailureMessage(invoice, "Currency Mismatch")
     }
 
     private fun handleGenericException(invoice: Invoice){
-        logger.info {"Unknown error while attempting to charge Invoice ID ${invoice.id}"}
         invoiceService.updateStatus(invoice.id, InvoiceStatus.FAILED_UNKNOWN_ERROR)
-        //TODO: inform support to handle it
+        slackIntegration.sendChargingFailureMessage(invoice, "Unknown Error")
+
     }
 
     private suspend fun handleNetworkException(invoice: Invoice, retries: Int){
