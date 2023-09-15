@@ -3,20 +3,43 @@ import io.pleo.antaeus.core.exceptions.CurrencyMismatchException
 import io.pleo.antaeus.core.exceptions.CustomerNotFoundException
 import io.pleo.antaeus.core.exceptions.NetworkException
 import kotlinx.coroutines.*
-import kotlin.math.pow
 import io.pleo.antaeus.core.external.PaymentProvider
 import io.pleo.antaeus.models.Invoice
 import io.pleo.antaeus.models.InvoiceStatus
 import java.lang.Exception
 import mu.KotlinLogging
+import java.time.LocalDate
 
 private val logger = KotlinLogging.logger {}
 
 class BillingService(
     private val paymentProvider: PaymentProvider,
     private val invoiceService: InvoiceService,
-    private val maxRetries: Int = 4 // Default Number of Max retries
+    private val config: BillingConfig
 ) {
+    suspend fun autobill() {
+        val currentDate = LocalDate.now()
+        val statusesToProcessToday = config.getStatusesToProcessForDay(currentDate.dayOfWeek)
+
+        // Bill pending invoices if it's the defined day of the month - currently at 1st of the month from the configuration
+        if (config.shouldProcessPendingInvoices(currentDate)){
+            billInvoices(InvoiceStatus.PENDING)
+            }
+        // If not the day of billing pending invoices then bill invoices based on schedule by day of the week - from the configuration
+        else {
+            for (status in statusesToProcessToday) {
+                billInvoices(status)
+            }
+        }
+
+        // Mark specific invoice statuses as permenent failed on a specific date - currently all failed statuses at the end of the month
+        if (config.shouldMarkAsPermafail(currentDate)) {
+            for (status in config.permanentFailStatuses )
+            markInvoicesAsPermanentFailed(status)
+        }
+    }
+
+
     suspend fun billInvoices(invoiceStatus: InvoiceStatus){
         val invoicesToProcess = invoiceService.fetchByStatus(invoiceStatus)
         logger.info { "Start processing ${invoicesToProcess.size} invoices" }
@@ -33,10 +56,21 @@ class BillingService(
 
     }
 
+    fun markInvoicesAsPermanentFailed(invoiceStatus: InvoiceStatus) {
+
+        // Fetch invoices with the specified statuses
+        val invoicesToMarkAsPermaFailed = invoiceService.fetchByStatus(invoiceStatus)
+
+        // Update the statuses of the fetched invoices to PERMANENT_FAIL
+        for (invoice in invoicesToMarkAsPermaFailed) {
+            invoiceService.updateStatus(invoice.id, InvoiceStatus.PERMANENT_FAIL)
+        }
+    }
+
     private suspend fun tryToChargeInvoice(invoice: Invoice){
         var retries = 0
 
-        while (retries <= maxRetries) {
+        while (retries <= config.maxRetries) {
             try {
                 val isInvoicePaid = paymentProvider.charge(invoice)
 
@@ -96,8 +130,8 @@ class BillingService(
 
     private suspend fun handleNetworkException(invoice: Invoice, retries: Int){
         logger.info { "Network error for Invoice ${invoice.id} during retry $retries)" } //todo: reword, maybe try instead of retry
-        if (retries < maxRetries) {
-            val delayMillis = calculateExponentialBackoff(retries)
+        if (retries < config.maxRetries) {
+            val delayMillis = config.delayFromRetryStrategy(retries)
             delay(delayMillis)
         } else {
             logger.info { "Max retries reached for ${invoice.id} and is now marked as failed" }
@@ -105,7 +139,4 @@ class BillingService(
         }
     }
 
-    private fun calculateExponentialBackoff(retries: Int): Long {
-        return (2.0.pow(retries.toDouble()) * 1000).toLong()
-    }
 }
