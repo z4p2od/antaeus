@@ -9,9 +9,7 @@ import io.javalin.apibuilder.ApiBuilder
 import io.javalin.apibuilder.ApiBuilder.get
 import io.javalin.apibuilder.ApiBuilder.path
 import io.javalin.apibuilder.ApiBuilder.post
-import io.javalin.http.BadRequestResponse
 import io.pleo.antaeus.core.exceptions.EntityNotFoundException
-import io.pleo.antaeus.core.exceptions.InvoiceNotFoundException
 import io.pleo.antaeus.core.services.BillingService
 import io.pleo.antaeus.core.services.CustomerService
 import io.pleo.antaeus.core.services.InvoiceService
@@ -35,18 +33,20 @@ class AntaeusRest(
     }
 
     // Set up Javalin rest app
-    private val app = Javalin.create().apply {
-        // InvoiceNotFoundException: return 404 HTTP status code
-        exception(EntityNotFoundException::class.java) { _, ctx ->
-            ctx.status(404)
+    private val app = Javalin
+        .create()
+        .apply {
+            // InvoiceNotFoundException: return 404 HTTP status code
+            exception(EntityNotFoundException::class.java) { _, ctx ->
+                ctx.status(404)
+            }
+            // Unexpected exception: return HTTP 500
+            exception(Exception::class.java) { e, _ ->
+                logger.error(e) { "Internal server error" }
+            }
+            // On 404: return message
+            error(404) { ctx -> ctx.json("not found") }
         }
-        // Unexpected exception: return HTTP 500
-        exception(Exception::class.java) { e, _ ->
-            logger.error(e) { "Internal server error" }
-        }
-        // On 404: return message
-        error(404) { ctx -> ctx.json("not found") }
-    }
 
     init {
         // Set up URL endpoints for the rest app
@@ -69,37 +69,28 @@ class AntaeusRest(
                             it.json(invoiceService.fetchAll())
                         }
 
+                        path("pending") {
+                            // URL: /rest/v1/invoices/pending
+                            get {
+                                it.json(invoiceService.fetchByStatus(InvoiceStatus.PENDING))
+                            }
+                        }
+
+                        path("pay") { // TODO: change "pay" with something more descriptive & maybe move path
+                            // URL: /rest/v1/invoices/pay
+                            post {
+                                GlobalScope.launch { //TODO: figure out if that's the best way to do it or go with routeCoroutineScope
+                                    billingService.billInvoices(InvoiceStatus.PENDING )
+                                }
+                                it.status(HttpStatus.NO_CONTENT_204)
+                            }
+                        }
+
                         // URL: /rest/v1/invoices/{:id}
                         get(":id") {
-                            try {
-                                val id = it.pathParam("id").toInt()
-
-                                // Perform parameter validation
-                                if (id <= 0) {
-                                    throw NumberFormatException()
-                                }
-                                it.json(invoiceService.fetch(it.pathParam("id").toInt()))
-                            } catch (e: NumberFormatException) {
-                                it.status(HttpStatus.BAD_REQUEST_400)
-                                it.result("Invalid ID format")
-                            }
+                            it.json(invoiceService.fetch(it.pathParam("id").toInt()))
                         }
 
-                        // URL: /rest/v1/invoices/status/statusID
-                        get("status/:statusID") {
-                            val status = it.pathParam("statusID").toUpperCase() // Convert to uppercase
-
-                            try {
-                                it.json(invoiceService.fetchByStatus(InvoiceStatus.valueOf(status)))
-                            } catch (e: IllegalArgumentException) {
-                                throw BadRequestResponse(
-                                    "Invalid status value: $status. Valid status values are: ${
-                                        InvoiceStatus.values().joinToString(", ")
-                                    }"
-                                )
-                            }
-
-                        }
                     }
 
                     path("customers") {
@@ -110,120 +101,7 @@ class AntaeusRest(
 
                         // URL: /rest/v1/customers/{:id}
                         get(":id") {
-                            try {
-                                val id = it.pathParam("id").toInt()
-
-                                // Perform parameter validation
-                                if (id <= 0) {
-                                    throw NumberFormatException()
-                                }
-                                it.json(customerService.fetch(it.pathParam("id").toInt()))
-                            } catch (e: NumberFormatException) {
-                                it.status(HttpStatus.BAD_REQUEST_400)
-                                it.result("Invalid ID format")
-                            }
-                        }
-                    }
-
-                    path("admin") {
-
-                        // URL: /rest/v1/admin/autoBilling
-                        post("autoBilling") {
-                            GlobalScope.launch {
-                                billingService.autobill()
-                            }
-                            it.status(HttpStatus.NO_CONTENT_204)
-                        }
-
-
-                        // URL: /rest/v1/admin/billByStatus/{:status}
-                        post("billByStatus/:status") {
-                            val status = it.pathParam("status").toUpperCase() // Convert to uppercase
-
-                            try {
-                                val invoiceStatus = InvoiceStatus.valueOf(status)
-
-                                if (invoiceStatus == InvoiceStatus.PAID) {
-                                    throw BadRequestResponse("Invalid status value: $status. 'PAID' cannot be processed.")
-                                } else {
-                                    // Perform the billing operation here
-                                    it.status(204) // No Content
-                                }
-                            } catch (e: IllegalArgumentException) {
-                                throw BadRequestResponse(
-                                    "Invalid status value: $status. Valid status values are: ${
-                                        InvoiceStatus.values().filter { it != InvoiceStatus.PAID }.joinToString(", ")
-                                    }"
-                                )
-                            }
-                        }
-
-                        // URL: /rest/v1/admin/billInvoice/{:id}
-                        post("billInvoice/:id") {
-                            try {
-                                val id = it.pathParam("id").toInt()
-
-                                if (id <= 0) {
-                                    throw NumberFormatException()
-                                }
-
-                                val invoice = invoiceService.fetch(id)
-                                GlobalScope.launch {
-                                    billingService.tryToChargeInvoice(invoice)
-                                    it.status(HttpStatus.NO_CONTENT_204)
-                                }
-                            } catch (e: NumberFormatException) {
-                                it.status(HttpStatus.BAD_REQUEST_400)
-                                it.result("Invalid ID format")
-                            }
-                        }
-
-                        // URL: /rest/v1/admin/markAsPermanentFail/{:Status}
-                        post("markAsPermanentFail/:status") {
-                            val status = it.pathParam("status").toUpperCase() // Convert to uppercase
-
-                            try {
-                                val invoiceStatus = InvoiceStatus.valueOf(status)
-
-                                if (invoiceStatus == InvoiceStatus.PAID || invoiceStatus == InvoiceStatus.PENDING) {
-                                    throw BadRequestResponse("Invalid status value: $status. cannot be marked as permanent fail.")
-
-                                } else if (invoiceStatus == InvoiceStatus.PERMANENT_FAIL) {
-                                    throw BadRequestResponse("Invoices already marked as permanent fail.")
-                                } else {
-                                    // Perform the operation here
-                                    billingService.markInvoicesAsPermanentFailed(invoiceStatus)
-                                    it.status(204) // No Content
-                                }
-                            } catch (e: IllegalArgumentException) {
-                                throw BadRequestResponse("Invalid status value: $status. Valid status values are: ${
-                                    InvoiceStatus.values()
-                                        .filter { it != InvoiceStatus.PAID && it != InvoiceStatus.PERMANENT_FAIL && it != InvoiceStatus.PENDING }
-                                        .joinToString(", ")
-                                }")
-                            }
-                        }
-
-                        // URL: /rest/v1/admin/updateInvoiceStatus/{:id}/{:status}
-                        post("updateInvoiceStatus/:id/:status") {
-                            try {
-                                val id = it.pathParam("id").toInt()
-                                if (id <= 0) {
-                                    throw NumberFormatException()
-                                }
-                                val newStatus = InvoiceStatus.valueOf(it.pathParam("status"))
-
-                                // Call your service to update the invoice status
-                                invoiceService.updateStatus(id, newStatus)
-
-                                it.status(HttpStatus.NO_CONTENT_204)
-                            } catch (e: NumberFormatException) {
-                                it.status(HttpStatus.BAD_REQUEST_400)
-                                it.result("Invalid invoice ID format")
-                            } catch (e: IllegalArgumentException) {
-                                it.status(HttpStatus.BAD_REQUEST_400)
-                                it.result("Invalid invoice status")
-                            }
+                            it.json(customerService.fetch(it.pathParam("id").toInt()))
                         }
                     }
                 }
@@ -231,9 +109,3 @@ class AntaeusRest(
         }
     }
 }
-
-
-
-
-
-
