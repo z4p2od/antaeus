@@ -72,7 +72,7 @@ class BillingService(
         }
     }
 
-    private suspend fun tryToChargeInvoice(invoice: Invoice){
+    suspend fun tryToChargeInvoice(invoice: Invoice){
         var retries = 0
 
         while (retries <= config.maxRetries) {
