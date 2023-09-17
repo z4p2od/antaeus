@@ -31,6 +31,7 @@ package io.pleo.antaeus.core.services
 
 import io.pleo.antaeus.core.exceptions.CurrencyMismatchException
 import io.pleo.antaeus.core.exceptions.CustomerNotFoundException
+import io.pleo.antaeus.core.exceptions.InvoiceAlreadyChargedException
 import io.pleo.antaeus.core.exceptions.NetworkException
 import io.pleo.antaeus.core.external.EmailService
 import io.pleo.antaeus.core.external.PaymentProvider
@@ -108,10 +109,6 @@ class BillingService(
 
         jobs.awaitAll()
 
-        val successfullyBilledCount = invoicesToProcess.filter { it.status == InvoiceStatus.PAID }.size
-
-        logger.info { "Billing process finished $successfullyBilledCount Invoices billed Successfully" }
-
     }
 
 /**
@@ -129,7 +126,7 @@ class BillingService(
             slackIntegration.sendMarkedPermanentFailMessage(invoice)
             invoiceService.updateStatus(invoice.id, InvoiceStatus.PERMANENT_FAIL)
         }
-        logger.info {"${invoicesToMarkAsPermaFailed.size} Invoices marked as permanent failed"}
+        logger.info {"${invoicesToMarkAsPermaFailed.size} $invoiceStatus Invoices marked as permanent failed"}
     }
 
     //Tries to charge the given invoice, handling various exceptions and retrying if necessary.
@@ -161,6 +158,9 @@ class BillingService(
             } catch (e:CurrencyMismatchException){
                 handleCurrencyMismatchException(invoice)
                 break
+            } catch (e:InvoiceAlreadyChargedException){
+                handleInvoiceAlreadyChargedException(invoice)
+                break
             } catch (e: Exception){
                 handleGenericException(invoice)
                 break
@@ -188,6 +188,13 @@ class BillingService(
         invoiceService.updateStatus(invoice.id, InvoiceStatus.FAILED_INVALID_CURRENCY)
         slackIntegration.sendChargingFailureMessage(invoice, "Currency Mismatch")
     }
+
+    //In case of trying to charge an already successfully charged invoice log the event
+    private fun handleInvoiceAlreadyChargedException(invoice:Invoice){
+        logger.info { " ${invoice.id} has already been charged" }
+
+    }
+
 
     // In case of unknown error, inform internal channel and update invoice status accordingly
     private fun handleGenericException(invoice: Invoice){

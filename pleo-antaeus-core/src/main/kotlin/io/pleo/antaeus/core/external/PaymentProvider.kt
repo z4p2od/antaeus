@@ -21,7 +21,9 @@ interface PaymentProvider {
         Throws:
           `CustomerNotFoundException`: when no customer has the given id.
           `CurrencyMismatchException`: when the currency does not match the customer account.
+          `InvoiceAlreadyChargedException`: when a given invoice id has already been successfully charged.
           `NetworkException`: when a network error happens.
+
      */
 
     fun charge(invoice: Invoice): Boolean
