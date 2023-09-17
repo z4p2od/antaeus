@@ -9,8 +9,6 @@ import mu.KotlinLogging
 import java.math.BigDecimal
 import kotlin.random.Random
 
-private val logger = KotlinLogging.logger {}
-
 // This will create all schemas and setup initial data
 internal fun setupInitialData(dal: AntaeusDal) {
     val customers = (1..100).mapNotNull {
@@ -38,34 +36,43 @@ internal fun getPaymentProvider(): PaymentProvider {
     return object : PaymentProvider {
         override fun charge(invoice: Invoice): Boolean {
             return Random.nextBoolean()
-            //return throw NetworkException() //to test retry TODO: clean
         }
     }
 }
 
+// This is the mocked instance of the email service
 internal fun getEmailService(): EmailService {
     return object : EmailService {
+
         private val emailLogger = KotlinLogging.logger {}
-        override fun sendPaymentFailureEmail(invoice: Invoice) {
+        override fun sendBillingFailureEmail(invoice: Invoice) {
             // log the email sending event
-            logger.info { "Sending payment failure email to ${invoice.customerId} for invoice ${invoice.id}" }
+            emailLogger.info { "Sending billing failure email to ${invoice.customerId} for invoice ${invoice.id}" }
+        }
+
+        override fun sendBillingSuccessEmail(invoice: Invoice) {
+            // log the email sending event
+            emailLogger.info { "Sending billing successful email to ${invoice.customerId} for invoice ${invoice.id}" }
         }
     }
 }
 
+// This is the mocked instance of the slack integration
 internal fun getSlackIntegration(): SlackIntegration {
     return object : SlackIntegration {
         private val slackLogger = KotlinLogging.logger {}
         override fun sendChargingFailureMessage(invoice: Invoice, errorMessage: String) {
             // log the Slack message event
-            logger.info { "Sending Slack message to support channel: Billing failed for invoice ${invoice.id}. Error: $errorMessage" }
+            slackLogger.info { "Sending Slack message to support channel: Billing failed for invoice ${invoice.id}. Error: $errorMessage" }
         }
 
         override fun sendMarkedPermanentFailMessage(invoice: Invoice) {
             // log the Slack message event
-            logger.info {
+            slackLogger.info {
                 "Sending Slack message message to support channel: Invoice ${invoice.id} is now marked as permanent failed reason: ${invoice.status}"
             }
         }
     }
 }
+
+

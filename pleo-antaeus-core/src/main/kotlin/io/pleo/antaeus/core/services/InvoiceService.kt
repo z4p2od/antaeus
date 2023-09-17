@@ -1,5 +1,11 @@
 /*
-    Implements endpoints related to invoices.
+ * The `InvoiceService` class provides operations for managing invoices:
+ *
+ * - `fetchAll()`: Fetches all invoices from the database.
+ * - `fetchByStatus(status: InvoiceStatus)`: Fetches invoices by their status.
+ * - `fetch(id: Int)`: Fetches a specific invoice by its ID or throws an `InvoiceNotFoundException`.
+ * - `updateStatus(id: Int, status: InvoiceStatus)`: Updates the status of a specific invoice by its ID.
+ *
  */
 
 package io.pleo.antaeus.core.services
@@ -23,7 +29,7 @@ class InvoiceService(private val dal: AntaeusDal) {
     }
 
     fun updateStatus(id: Int, status: InvoiceStatus ) {
-        fetch(id) // check if id exists else InvoiceNotFoundException will be thrown by fetch(i)
+        fetch(id) // check if id exists else InvoiceNotFoundException will be thrown by fetch(id)
         dal.updateInvoiceStatus(id, status)
     }
 }

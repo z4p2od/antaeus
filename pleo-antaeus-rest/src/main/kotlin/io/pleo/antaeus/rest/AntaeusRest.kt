@@ -1,24 +1,43 @@
 /*
-    Configures the rest app along with basic exception handling and URL endpoints.
+ * Antaeus REST API
+ *
+ * Roots and Endpoints:
+ *
+ * - /rest
+ *   - GET /rest/health: Check the health of the application.
+ *
+ * - /rest/v1
+ *   - /invoices
+ *     - GET /rest/v1/invoices: Get a list of all invoices.
+ *     - GET /rest/v1/invoices/{:id}: Get an invoice by ID.
+ *     - GET /rest/v1/invoices/status/{:statusID}: Get invoices by status.
+ *   - /customers
+ *     - GET /rest/v1/customers: Get a list of all customers.
+ *     - GET /rest/v1/customers/{:id}: Get a customer by ID.
+ *   - /admin
+ *     - POST /rest/v1/admin/autoBilling: Initiate the auto-billing process.
+ *     - POST /rest/v1/admin/billByStatus/{:status}: Bill invoices by status.
+ *     - POST /rest/v1/admin/billInvoice/{:id}: Bill a specific invoice.
+ *     - POST /rest/v1/admin/markAsPermanentFail/{:status}: Mark invoices as permanent fail.
+ *     - POST /rest/v1/admin/updateInvoiceStatus/{:id}/{:status}: Update the status of an invoice.
  */
 
 package io.pleo.antaeus.rest
 
 import io.javalin.Javalin
-import io.javalin.apibuilder.ApiBuilder
 import io.javalin.apibuilder.ApiBuilder.get
 import io.javalin.apibuilder.ApiBuilder.path
 import io.javalin.apibuilder.ApiBuilder.post
 import io.javalin.http.BadRequestResponse
 import io.pleo.antaeus.core.exceptions.EntityNotFoundException
-import io.pleo.antaeus.core.exceptions.InvoiceNotFoundException
 import io.pleo.antaeus.core.services.BillingService
 import io.pleo.antaeus.core.services.CustomerService
 import io.pleo.antaeus.core.services.InvoiceService
 import io.pleo.antaeus.models.InvoiceStatus
+import kotlinx.coroutines.*
 import mu.KotlinLogging
 import org.eclipse.jetty.http.HttpStatus
-import kotlinx.coroutines.*
+
 
 
 private val logger = KotlinLogging.logger {}
@@ -130,7 +149,7 @@ class AntaeusRest(
                         // URL: /rest/v1/admin/autoBilling
                         post("autoBilling") {
                             GlobalScope.launch {
-                                billingService.autobill()
+                                billingService.autoBilling()
                             }
                             it.status(HttpStatus.NO_CONTENT_204)
                         }

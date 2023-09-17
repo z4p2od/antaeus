@@ -1,5 +1,9 @@
 /*
-    Implements endpoints related to customers.
+ * The `CustomerService` class provides operations for managing customers:
+ *
+ * - `fetchAll()`: Fetches all customers from the database.
+ * - `fetch(id: Int)`: Fetches a specific customer by its ID or throws a `CustomerNotFoundException`.
+ *
  */
 
 package io.pleo.antaeus.core.services

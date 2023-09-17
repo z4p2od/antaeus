@@ -1,4 +1,21 @@
+/*
+ * This file defines the BillingConfiguration class, responsible for configuring the scheduling
+ * and retry logic of the billing service. It includes settings for maximum retry counts, defines
+ * which invoice statuses should be marked as permanent failures and when, sets billing schedules, and
+ * calculates retry delay times.
+ *
+ * maxRetries: Specifies the maximum number of retries for network and unknown errors.
+ * permanentFailStatuses: Lists the invoice statuses to mark as permanent failures.
+ * statusesToBill: Maps each day of the week to the statuses to process on that day.
+ * getStatusesToBill: Determines which invoices should be billed on a specific day of the week.
+ * shouldBillPendingInvoices: Checks if pending invoices should be billed - Currently true on the first day of the month.
+ * shouldMarkAsPermanentFailed: Checks if invoices should be marked as permanent failures - Currently true on the last day of the month.
+ * delayFromRetryStrategy: Calculates the delay before the next retry based on a retry strategy.
+ *  */
+
+
 package io.pleo.antaeus.core.services
+
 import io.pleo.antaeus.models.InvoiceStatus
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -6,7 +23,7 @@ import java.time.temporal.TemporalAdjusters
 import kotlin.math.pow
 
 
-class BillingConfig {
+class BillingConfiguration {
     // Define maximum number of retries for Network & Unknown Errors
     val maxRetries: Int = 4
 
@@ -20,7 +37,7 @@ class BillingConfig {
     )
 
     // Define a map that maps each day of the week to the statuses to process on that day.
-    private val statusesToProcess: Map<DayOfWeek, List<InvoiceStatus>> = mapOf(
+    private val statusesToBill: Map<DayOfWeek, List<InvoiceStatus>> = mapOf(
         DayOfWeek.MONDAY to listOf(InvoiceStatus.FAILED_NETWORK_ERROR),
         DayOfWeek.TUESDAY to listOf(InvoiceStatus.FAILED_NETWORK_ERROR),
         DayOfWeek.WEDNESDAY to listOf(
@@ -31,24 +48,24 @@ class BillingConfig {
         ),
         DayOfWeek.THURSDAY to listOf(InvoiceStatus.FAILED_NETWORK_ERROR),
         DayOfWeek.FRIDAY to listOf(
-            InvoiceStatus.FAILED_NETWORK_ERROR,
-            InvoiceStatus.FAILED_INSUFFICIENT_BALANCE
+            InvoiceStatus.FAILED_NETWORK_ERROR, InvoiceStatus.FAILED_INSUFFICIENT_BALANCE
         ),
         DayOfWeek.SATURDAY to listOf(InvoiceStatus.FAILED_NETWORK_ERROR),
-        DayOfWeek.SUNDAY to listOf(InvoiceStatus.FAILED_NETWORK_ERROR)
+        DayOfWeek.SUNDAY to listOf(InvoiceStatus.FAILED_NETWORK_ERROR, InvoiceStatus.PENDING)
     )
 
     // Function to determine which invoices should be charged a given day of the week
-    fun getStatusesToProcessForDay(dayOfWeek: DayOfWeek): List<InvoiceStatus> {
-        return statusesToProcess[dayOfWeek] ?: emptyList()
+    fun getStatusesToBill(dayOfWeek: DayOfWeek): List<InvoiceStatus> {
+        return statusesToBill[dayOfWeek] ?: emptyList()
     }
 
-    // Function to determine if pending invoices should be charged
-    fun shouldProcessPendingInvoices(currentDate: LocalDate): Boolean {
+    // Function to determine if pending invoices should be charged at a given day (currently first day of the month)
+    fun shouldBillPendingInvoices(currentDate: LocalDate): Boolean {
         return isFirstDayOfMonth(currentDate)
     }
-    // Function to determine if invoices should be marked as permafail
-    fun shouldMarkAsPermafail(currentDate: LocalDate): Boolean {
+
+    // Function to determine if invoices should be marked as permanentFailed at a given day (currently last day of the month)
+    fun shouldMarkAsPermanentFailed(currentDate: LocalDate): Boolean {
         return isLastDayOfMonth(currentDate)
     }
 
@@ -56,7 +73,6 @@ class BillingConfig {
     fun delayFromRetryStrategy(retries: Int): Long {
         return exponentialBackoff(retries)
     }
-
 
     // Function to check if it's the first day of the month
     private fun isFirstDayOfMonth(currentDate: LocalDate): Boolean {
