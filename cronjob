@@ -1,5 +1,5 @@
 # Cron job to execute a POST request to the Antaeus server to trigger autoBilling
 # Make sure the URL is correct, and log the output and errors to a log file
-* * * * * curl --location --request POST 'http://anteaus:7000/rest/v1/admin/autoBilling' >> /var/log/cron.log 2>&1
+0 0 * * * curl --location --request POST 'http://anteaus:7000/rest/v1/admin/autoBilling' >> /var/log/cron.log 2>&1
 
 # An empty line is required at the end of this file for a valid cron file.
