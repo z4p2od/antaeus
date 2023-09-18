@@ -270,6 +270,9 @@ These future improvements offer opportunities to enhance the system's efficiency
 
 While the assumption that the payment provider is idempotent is a reasonable one, introducing additional failsafes can provide an extra layer of assurance against unintentional double charging of invoices, especially when invoices are processed concurrently. A couple of options could be Idempotency Tokens or Distributed Locking
 
+## 6. Coroutine Scope and Dispatcher Improvements
+
+Currently, I'm running coroutines on a global scope, which is probably not the best practice, and I'm utilizing default dispatchers, whereas I/O dispatchers are probably better suited for the app. I would address these points once I'm more comfortable working with coroutines.
 
 # Challenges
 
