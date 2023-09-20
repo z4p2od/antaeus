@@ -8,30 +8,22 @@ import io.pleo.antaeus.core.external.SlackIntegration
 import io.pleo.antaeus.models.Customer
 import io.pleo.antaeus.models.Invoice
 import io.pleo.antaeus.models.InvoiceStatus
-import kotlinx.coroutines.*
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.*
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
+import java.time.DayOfWeek
 
 const val INVOICE_ID = 42
 const val CUSTOMER_ID = 44
 
-
-@ExperimentalCoroutinesApi //
 class BillingServiceTest {
     //mock dependencies
     private val paymentProvider = mockk<PaymentProvider>()
     private val invoiceService = mockk<InvoiceService>(relaxed = true)
-    private val emailService = mockk<EmailService>()
-    private val slackIntegration = mockk<SlackIntegration>()
-    private val billingConfiguration = mockk<BillingConfiguration>()
+    private val emailService = mockk<EmailService>(relaxed = true)
+    private val slackIntegration = mockk<SlackIntegration>(relaxed = true)
+    private val billingConfiguration = mockk<BillingConfiguration>(relaxed = true)
 
-    // Create a TestCoroutineDispatcher
-    private val testDispatcher = TestCoroutineDispatcher()
 
     //create billing service instant
     private val billingService = BillingService(
@@ -42,22 +34,8 @@ class BillingServiceTest {
         billingConfiguration = billingConfiguration
     )
 
-    @BeforeEach
-    fun setUp() {
-        // Set the TestCoroutineDispatcher as the main dispatcher
-        Dispatchers.setMain(testDispatcher)
-    }
-
-    @AfterEach
-    fun tearDown() {
-        // Reset the main dispatcher after the test
-        Dispatchers.resetMain()
-        // Cleanup the TestCoroutineDispatcher
-        testDispatcher.cleanupTestCoroutines()
-    }
-
     @Test
-     fun `should not process any invoice`() = testDispatcher.runBlockingTest {
+     fun `should not process any invoice`() = runTest{
 
         every { invoiceService.fetchByStatus(any()) } returns emptyList()
 
@@ -66,10 +44,9 @@ class BillingServiceTest {
         verify(exactly = 0) { paymentProvider.charge(any()) }
         verify(exactly = 0) { invoiceService.updateStatus(any(), any()) }
     }
-/*
 
     @Test
-     fun `should bill once invoice and update statuses`() = testDispatcher.runBlockingTest {
+     fun `should bill once invoice and update statuses`() = runTest{
 
         val invoice = mockk<Invoice>() {
             every { id } returns INVOICE_ID
@@ -87,7 +64,7 @@ class BillingServiceTest {
     }
 
     @Test
-     fun `should fail when payment povider doesn't charge`() = testDispatcher.runBlockingTest {
+     fun `should fail when payment povider doesn't charge`() = runTest{
         val invoice = mockk<Invoice>() {
             every { id } returns INVOICE_ID
         }
@@ -105,13 +82,15 @@ class BillingServiceTest {
     }
 
     @Test
-     fun `should set state to Invalid Currency when there's a currency missmatch`() =testDispatcher.runBlockingTest {
+     fun `should set state to Invalid Currency when there's a currency missmatch`() = runTest{
         val invoice = mockk<Invoice>() {
             every { id } returns INVOICE_ID
         }
         val customer = mockk<Customer>(){
             every {id} returns CUSTOMER_ID
         }
+
+        every { invoiceService.fetchByStatus(InvoiceStatus.PENDING) } returns listOf(invoice)
         every { paymentProvider.charge(invoice) } throws CurrencyMismatchException(invoice.id, customer.id)
 
         billingService.billInvoices(invoiceStatus = InvoiceStatus.PENDING)
@@ -123,20 +102,18 @@ class BillingServiceTest {
         }
 
     }
-
     @Test
-    fun `should bill pending invoices at specific date`() = testDispatcher.runBlockingTest {
+     fun `should bill pending invoices at specific date`() = runTest{
         // Everything inside this block runs in a coroutine scope
 
         every { billingConfiguration.shouldBillPendingInvoices(any()) } returns true
 
         billingService.autoBilling()
 
-        verify {
-            billingService.billInvoices(InvoiceStatus.PENDING)
+        coVerify {
+            billingService.billInvoices(invoiceStatus = InvoiceStatus.PENDING)
         }
     }
-*/
 
 }
 

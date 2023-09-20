@@ -14,8 +14,8 @@ fun Project.kotlinProject() {
         "implementation"(kotlin("stdlib"))
 
         // Logging
-        "implementation"("org.slf4j:slf4j-simple:1.7.30")
-        "implementation"("io.github.microutils:kotlin-logging:1.7.8")
+        "implementation"("org.slf4j:slf4j-simple:2.0.3")
+        "implementation"("io.github.oshai:kotlin-logging-jvm:5.1.0")
 
         // Mockk
         "testImplementation"("io.mockk:mockk:1.9.3")
@@ -23,7 +23,7 @@ fun Project.kotlinProject() {
         // JUnit 5
         "testImplementation"("org.junit.jupiter:junit-jupiter-api:$junitVersion")
         "testImplementation"("org.junit.jupiter:junit-jupiter-params:$junitVersion")
-        "runtime"("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
+        "runtimeOnly"("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
     }
 }
 

@@ -35,19 +35,22 @@ import io.pleo.antaeus.core.services.CustomerService
 import io.pleo.antaeus.core.services.InvoiceService
 import io.pleo.antaeus.models.InvoiceStatus
 import kotlinx.coroutines.*
-import mu.KotlinLogging
+import kotlinx.coroutines.CoroutineScope
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.eclipse.jetty.http.HttpStatus
-
+import java.util.*
 
 
 private val logger = KotlinLogging.logger {}
-private val thisFile: () -> Unit = {}
 
 class AntaeusRest(
     private val invoiceService: InvoiceService,
     private val customerService: CustomerService,
     private val billingService: BillingService
 ) : Runnable {
+
+    // Create a custom CoroutineScope for the REST layer
+    private val restCoroutineScope = CoroutineScope(Dispatchers.IO)
 
     override fun run() {
         app.start(7000)
@@ -88,8 +91,8 @@ class AntaeusRest(
                             it.json(invoiceService.fetchAll())
                         }
 
-                        // URL: /rest/v1/invoices/{:id}
-                        get(":id") {
+                        // URL: /rest/v1/invoices/{id}
+                        get("{id}") { // Replace :id with {id}
                             try {
                                 val id = it.pathParam("id").toInt()
 
@@ -104,9 +107,9 @@ class AntaeusRest(
                             }
                         }
 
-                        // URL: /rest/v1/invoices/status/statusID
-                        get("status/:statusID") {
-                            val status = it.pathParam("statusID").toUpperCase() // Convert to uppercase
+                        // URL: /rest/v1/invoices/status/{statusID}
+                        get("status/{statusID}") { // Replace :statusID with {statusID}
+                            val status = it.pathParam("statusID").uppercase(Locale.getDefault()) // Convert to uppercase
 
                             try {
                                 it.json(invoiceService.fetchByStatus(InvoiceStatus.valueOf(status)))
@@ -117,7 +120,6 @@ class AntaeusRest(
                                     }"
                                 )
                             }
-
                         }
                     }
 
@@ -127,8 +129,8 @@ class AntaeusRest(
                             it.json(customerService.fetchAll())
                         }
 
-                        // URL: /rest/v1/customers/{:id}
-                        get(":id") {
+                        // URL: /rest/v1/customers/{id}
+                        get("{id}") { // Replace :id with {id}
                             try {
                                 val id = it.pathParam("id").toInt()
 
@@ -145,19 +147,17 @@ class AntaeusRest(
                     }
 
                     path("admin") {
-
                         // URL: /rest/v1/admin/autoBilling
                         post("autoBilling") {
-                            GlobalScope.launch {
+                            restCoroutineScope.launch {
                                 billingService.autoBilling()
                             }
                             it.status(HttpStatus.NO_CONTENT_204)
                         }
 
-
-                        // URL: /rest/v1/admin/billByStatus/{:status}
-                        post("billByStatus/:status") {
-                            val status = it.pathParam("status").toUpperCase() // Convert to uppercase
+                        // URL: /rest/v1/admin/billByStatus/{status}
+                        post("billByStatus/{status}") { // Replace :status with {status}
+                            val status = it.pathParam("status").uppercase(Locale.getDefault()) // Convert to uppercase
 
                             try {
                                 val invoiceStatus = InvoiceStatus.valueOf(status)
@@ -166,7 +166,7 @@ class AntaeusRest(
                                     throw BadRequestResponse("Invalid status value: $status. 'PAID' cannot be processed.")
                                 } else {
                                     // Perform the billing operation here
-                                    GlobalScope.launch {
+                                    restCoroutineScope.launch {
                                         billingService.billInvoices(invoiceStatus)
                                         it.status(HttpStatus.NO_CONTENT_204)
                                     }
@@ -181,8 +181,8 @@ class AntaeusRest(
                             }
                         }
 
-                        // URL: /rest/v1/admin/billInvoice/{:id}
-                        post("billInvoice/:id") {
+                        // URL: /rest/v1/admin/billInvoice/{id}
+                        post("billInvoice/{id}") { // Replace :id with {id}
                             try {
                                 val id = it.pathParam("id").toInt()
 
@@ -191,7 +191,7 @@ class AntaeusRest(
                                 }
 
                                 val invoice = invoiceService.fetch(id)
-                                GlobalScope.launch {
+                                restCoroutineScope.launch {
                                     billingService.tryToChargeInvoice(invoice)
                                     it.status(HttpStatus.NO_CONTENT_204)
                                 }
@@ -201,16 +201,15 @@ class AntaeusRest(
                             }
                         }
 
-                        // URL: /rest/v1/admin/markAsPermanentFail/{:Status}
-                        post("markAsPermanentFail/:status") {
-                            val status = it.pathParam("status").toUpperCase() // Convert to uppercase
+                        // URL: /rest/v1/admin/markAsPermanentFail/{Status}
+                        post("markAsPermanentFail/{status}") { // Replace :status with {status}
+                            val status = it.pathParam("status").uppercase(Locale.getDefault()) // Convert to uppercase
 
                             try {
                                 val invoiceStatus = InvoiceStatus.valueOf(status)
 
                                 if (invoiceStatus == InvoiceStatus.PAID || invoiceStatus == InvoiceStatus.PENDING) {
                                     throw BadRequestResponse("Invalid status value: $status. cannot be marked as permanent fail.")
-
                                 } else if (invoiceStatus == InvoiceStatus.PERMANENT_FAIL) {
                                     throw BadRequestResponse("Invoices already marked as permanent fail.")
                                 } else {
@@ -227,8 +226,8 @@ class AntaeusRest(
                             }
                         }
 
-                        // URL: /rest/v1/admin/updateInvoiceStatus/{:id}/{:status}
-                        post("updateInvoiceStatus/:id/:status") {
+                        // URL: /rest/v1/admin/updateInvoiceStatus/{id}/{status}
+                        post("updateInvoiceStatus/{id}/{status}") { // Replace :id and :status with {id} and {status}
                             try {
                                 val id = it.pathParam("id").toInt()
                                 if (id <= 0) {
@@ -250,6 +249,7 @@ class AntaeusRest(
                         }
                     }
                 }
+
             }
         }
     }

@@ -5,7 +5,7 @@ import io.pleo.antaeus.core.external.PaymentProvider
 import io.pleo.antaeus.core.external.SlackIntegration
 import io.pleo.antaeus.data.AntaeusDal
 import io.pleo.antaeus.models.*
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.math.BigDecimal
 import kotlin.random.Random
 

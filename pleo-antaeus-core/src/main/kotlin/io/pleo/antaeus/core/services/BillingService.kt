@@ -41,11 +41,9 @@ import io.pleo.antaeus.models.InvoiceStatus
 import kotlinx.coroutines.*
 import java.lang.Exception
 import java.time.LocalDate
-import mu.KotlinLogging
-
+import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
-
 class BillingService(
     private val paymentProvider: PaymentProvider,
     private val invoiceService: InvoiceService,
@@ -99,10 +97,10 @@ class BillingService(
         val invoicesToProcess = invoiceService.fetchByStatus(invoiceStatus)
         logger.info { "Start processing ${invoicesToProcess.size} $invoiceStatus invoices" }
 
-        val scope = CoroutineScope(Dispatchers.Default)
+        val billInvoicesCoroutineScope = CoroutineScope(Dispatchers.IO)
 
         val jobs = invoicesToProcess.map { invoice ->
-            scope.async {
+            billInvoicesCoroutineScope.async {
                 tryToChargeInvoice(invoice)
             }
         }

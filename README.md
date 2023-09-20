@@ -270,7 +270,7 @@ These future improvements offer opportunities to enhance the system's efficiency
 
 While the assumption that the payment provider is idempotent is a reasonable one, introducing additional failsafes can provide an extra layer of assurance against unintentional double charging of invoices, especially when invoices are processed concurrently. A couple of options could be Idempotency Tokens or Distributed Locking
 
-## 6. Coroutine Scope and Dispatcher Improvements
+## 6. Coroutine Scope and Dispatcher Improvements -- Edit: Fixed 🥳
 
 Currently, I'm running coroutines on a global scope, which is probably not the best practice, and I'm utilizing default dispatchers, whereas I/O dispatchers are probably better suited for the app. I would address these points once I'm more comfortable working with coroutines.
 
@@ -280,14 +280,14 @@ Currently, I'm running coroutines on a global scope, which is probably not the b
 - For the past decade, I haven't had much programming experience. During my university years, my focus was primarily on C, assembly, and some Haskell. So, in essence, everything I encountered in this project was entirely new to me. Git, Kotlin (including functional programming concepts), Gradle, Docker, and even tools like Postman required time to get familiar with. 
 
 ## Outdated Dependencies
-
--One particularly annoying challenge was the project's reliance on outdated versions of Gradle, Kotlin, and various dependencies. This issue became evident when I attempted to integrate Coroutines into the project and especially during unit testing. Seems that older versions lacked several features present in the latest stable releases. Unfortunately, I couldn't bring the project up to date within the constraints of the project timeline.  
-
+- One particularly annoying challenge was the project's reliance on outdated versions of Gradle, Kotlin, and various dependencies. This issue became evident when I attempted to integrate Coroutines into the project and especially during unit testing. Seems that older versions lacked several features present in the latest stable releases. Unfortunately, I couldn't bring the project up to date within the constraints of the project timeline.  
+- Edit: With some more digging I managed to update the dependencies 🥳
 ## Cron Job Setup
 - Setting up the cron job to run with docker was also challenging and to be honest still some parts of the docker files I understand only on a high level, but I guess if it works 🤷😅
  
 ## Coroutines Complexity 
 - Coroutines, while promising, introduced complexity to the project. At my current skill level, I possess only a high-level understanding of concepts such as coroutine scope and dispatcher strategies. Testing Coroutines proved to be particularly challenging, and debugging issues within this context posed a significant hurdle. I believe that resolving these challenges could become more feasible once the project's environment and dependencies are updated to more recent versions.
+
 
 # Final Thoughts
 
