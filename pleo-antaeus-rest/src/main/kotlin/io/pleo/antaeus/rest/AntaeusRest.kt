@@ -214,8 +214,11 @@ class AntaeusRest(
                                     throw BadRequestResponse("Invoices already marked as permanent fail.")
                                 } else {
                                     // Perform the operation here
-                                    billingService.markInvoicesAsPermanentFailed(invoiceStatus)
-                                    it.status(204) // No Content
+                                    restCoroutineScope.launch{
+                                        billingService.markInvoicesAsPermanentFailed(invoiceStatus)
+                                        it.status(204) // No Content
+                                    }
+
                                 }
                             } catch (e: IllegalArgumentException) {
                                 throw BadRequestResponse("Invalid status value: $status. Valid status values are: ${
@@ -236,7 +239,9 @@ class AntaeusRest(
                                 val newStatus = InvoiceStatus.valueOf(it.pathParam("status"))
 
                                 // Call your service to update the invoice status
-                                invoiceService.updateStatus(id, newStatus)
+                                restCoroutineScope.launch{
+                                    invoiceService.updateStatus(id, newStatus)
+                                }
 
                                 it.status(HttpStatus.NO_CONTENT_204)
                             } catch (e: NumberFormatException) {

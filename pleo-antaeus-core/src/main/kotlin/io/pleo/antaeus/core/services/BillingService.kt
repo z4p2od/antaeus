@@ -42,8 +42,12 @@ import kotlinx.coroutines.*
 import java.lang.Exception
 import java.time.LocalDate
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.util.concurrent.ConcurrentHashMap
+
 
 private val logger = KotlinLogging.logger {}
+private val invoicesBeingProcessed = ConcurrentHashMap<Int, Boolean>() // Use ConcurrentHashMap to track invoices being processed
+
 class BillingService(
     private val paymentProvider: PaymentProvider,
     private val invoiceService: InvoiceService,
@@ -93,7 +97,7 @@ class BillingService(
 
 
     //  Attempts to bill invoices with the specified status concurrently.
-    suspend fun billInvoices(invoiceStatus: InvoiceStatus){
+    suspend fun billInvoices(invoiceStatus: InvoiceStatus) {
         val invoicesToProcess = invoiceService.fetchByStatus(invoiceStatus)
         logger.info { "Start processing ${invoicesToProcess.size} $invoiceStatus invoices" }
 
@@ -101,15 +105,25 @@ class BillingService(
 
         val jobs = invoicesToProcess.map { invoice ->
             billInvoicesCoroutineScope.async {
-                tryToChargeInvoice(invoice)
+                // Check if the invoice is already being processed
+                if (invoicesBeingProcessed.putIfAbsent(invoice.id, true) == null) {
+                    try {
+                        tryToChargeInvoice(invoice)
+                    } finally {
+                        invoicesBeingProcessed.remove(invoice.id) // Remove the invoice from being processed
+                    }
+                } else {
+                    logger.info { "Skipping invoice ${invoice.id} as it is already being processed" }
+                }
             }
         }
 
         jobs.awaitAll()
-
     }
 
-/**
+
+
+    /**
  Marks invoices with the specified status as permanent failures and updates their statuses accordingly.
  This function is called to handle cases where invoices cannot be successfully processed after multiple attempts.
  It notifies internal channel through Slack Integration about the permanent failure and updates the invoice status to 'PERMANENT_FAIL.'
@@ -121,8 +135,14 @@ class BillingService(
 
         // Update the statuses of the fetched invoices to PERMANENT_FAIL
         for (invoice in invoicesToMarkAsPermaFailed) {
-            slackIntegration.sendMarkedPermanentFailMessage(invoice)
-            invoiceService.updateStatus(invoice.id, InvoiceStatus.PERMANENT_FAIL)
+            if (invoicesBeingProcessed.putIfAbsent(invoice.id, true) == null) {
+                    slackIntegration.sendMarkedPermanentFailMessage(invoice)
+                    invoiceService.updateStatus(invoice.id, InvoiceStatus.PERMANENT_FAIL)
+                    invoicesBeingProcessed.remove(invoice.id) // Remove the invoice from being processed
+            }
+            else {
+                logger.info { "Skipping invoice ${invoice.id} as it is already being processed" }
+            }
         }
         logger.info {"${invoicesToMarkAsPermaFailed.size} $invoiceStatus Invoices marked as permanent failed"}
     }
